@@ -4,8 +4,7 @@ var csurf = require('csurf');
 var express = require('express');
 var extend = require('xtend');
 var forms = require('forms');
-var mongoose = require('mongoose');
-var User = require('./models');
+var User = require('../models');
 
 var profileForm = forms.create({
     givenName: forms.fields.string({ required: true }),
@@ -22,47 +21,45 @@ function renderForm(req, res, locals) {
         csrfToken: req.csrfToken(),
         givenName: req.user.givenName,
         surname: req.user.surname,
-        streetAddress: req.user.customData.streetAddress,
-        city: req.user.customData.city,
-        state: req.user.customData.state,
-        zip: req.user.customData.zip
+        streetAddress: req.user.streetAddress,
+        city: req.user.city,
+        state: req.user.state,
+        zip: req.user.zip
     }, locals || {}));
 }
 
 module.exports = function profile() {
-    var router = express.Router();
+    const router = express.Router();
     router.use(cookieParser());
     router.use(bodyParser.urlencoded({ extended: true }));
     router.use(csurf({ cookie: true }));
-    router.all('/', function(req,res) {
+
+    router.all('/', function(req, res) {
         profileForm.handle(req, {
             success: function(form) {
                 req.user.givenName = form.data.givenName;
                 req.user.surname = form.data.surname;
-                req.user.customData.streetAddress = form.data.streetAddress;
-                req.user.customData.city = form.data.city;
-                req.user.customData.state = form.data.state;
-                req.user.customData.zip = form.data.zip;
-                req.user.customData.save();
-                req.user.save(function(err) {
+                req.user.streetAddress = form.data.streetAddress;
+                req.user.city = form.data.city;
+                req.user.state = form.data.state;
+                req.user.zip = form.data.zip;
+                renderForm(req, res, {
+                    saved: true
+                });
+
+                var user = new User();
+                var address = new Address();
+                user.givenName = req.user.givenName;
+                user.surname = req.user.surname;
+                user.save(function(err) {
                     if (err) {
-                        if (err.developerMessage) {
-                            console.error(err);
-                        }
-                        renderForm(req, res, {
-                            errors: [{
-                                error: err.userMessage || err.message || String(err)
-                            }]
-                        });
-                    } else {
-                        renderForm(req, res, {
-                            saved: true
-                        });
+                        console.log(err);
                     }
-                    });
+                    res.json('Address added to DB');
+                });
             },
             empty: function() {
-                renderForm(req,res);
+                renderForm(req, res);
             }
         });
     });
